@@ -1,0 +1,48 @@
+# Composer
+/vendor/
+
+# ThinkPHP 运行时与缓存
+/runtime/
+
+# 用户上传（图片、付款凭证、GCash 二维码等）
+/public/storage/
+
+# 本地 SQLite 数据库（含业务数据，勿提交）
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+
+# 环境变量与密钥
+.env
+.env.*
+.env_*
+!.env.example
+
+# PHP / 测试
+.phpunit.result.cache
+phpunit.xml
+composer.phar
+
+# 日志
+*.log
+
+# 系统文件
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*~
+*.bak
+
+# Node（若 backend 目录误装前端依赖）
+node_modules/
