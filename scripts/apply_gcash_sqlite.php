@@ -17,7 +17,7 @@ $app->initialize();
 
 $pdo = \think\facade\Db::connect()->getPdo();
 
-$sqlFile = $root . '/database_migration_gcash_sqlite.sql';
+$sqlFile = $root . '/sql/sqlite/migrations/008_gcash.sql';
 if (!is_file($sqlFile)) {
     fwrite(STDERR, "Missing {$sqlFile}\n");
     exit(1);

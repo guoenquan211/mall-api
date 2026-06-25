@@ -50,9 +50,26 @@ class ExceptionHandle extends Handle
      */
     public function render($request, Throwable $e): Response
     {
-        // 添加自定义异常处理机制
+        $path = ltrim((string) $request->pathinfo(), '/');
+        $isApi = str_starts_with($path, 'api/') || str_starts_with($path, 'api');
 
-        // 其他错误交给系统处理
+        if ($isApi) {
+            $debug = (bool) env('APP_DEBUG', false);
+            if ($debug) {
+                return json([
+                    'code'  => 500,
+                    'msg'   => $e->getMessage(),
+                    'type'  => get_class($e),
+                    'file'  => $e->getFile(),
+                    'line'  => $e->getLine(),
+                ], 500);
+            }
+            return json([
+                'code' => 500,
+                'msg'  => 'Server error. Set APP_DEBUG=true in .env temporarily, or open /tp-check.php',
+            ], 500);
+        }
+
         return parent::render($request, $e);
     }
 }

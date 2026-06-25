@@ -15,7 +15,7 @@ if (!is_file($dbFile)) {
 $pdo = new PDO('sqlite:' . $dbFile);
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-$sqlFile = $root . DIRECTORY_SEPARATOR . 'database_migration_affiliate_sqlite.sql';
+$sqlFile = $root . DIRECTORY_SEPARATOR . 'sql' . DIRECTORY_SEPARATOR . 'sqlite' . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '007_affiliate.sql';
 if (!is_file($sqlFile)) {
     fwrite(STDERR, "Migration file missing\n");
     exit(1);

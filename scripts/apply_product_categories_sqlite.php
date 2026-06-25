@@ -3,7 +3,7 @@
  * One-shot: ensure product_categories exists in SQLite (local dev).
  */
 $root = dirname(__DIR__);
-$sqlFile = $root . DIRECTORY_SEPARATOR . 'database_migration_product_categories_sqlite.sql';
+$sqlFile = $root . DIRECTORY_SEPARATOR . 'sql' . DIRECTORY_SEPARATOR . 'sqlite' . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '001_product_categories.sql';
 
 $dbs = ['database.sqlite', 'database_1.sqlite'];
 if (!is_file($sqlFile)) {

@@ -3,7 +3,7 @@
  * One-shot: add products.show_on_home to existing SQLite DBs (local dev).
  */
 $root = dirname(__DIR__);
-$sqlFile = $root . DIRECTORY_SEPARATOR . 'database_migration_product_show_on_home_sqlite.sql';
+$sqlFile = $root . DIRECTORY_SEPARATOR . 'sql' . DIRECTORY_SEPARATOR . 'sqlite' . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . '002_product_show_on_home.sql';
 
 $dbs = ['database.sqlite', 'database_1.sqlite'];
 if (!is_file($sqlFile)) {

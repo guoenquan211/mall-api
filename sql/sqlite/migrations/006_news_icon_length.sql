@@ -1,0 +1,1 @@
+-- SQLite 的 news.icon 已是 TEXT，无需变更；本文件仅占位说明

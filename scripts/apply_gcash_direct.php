@@ -11,7 +11,7 @@ if (!is_file($dbFile)) {
 $pdo = new PDO('sqlite:' . $dbFile);
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-$sqlFile = dirname(__DIR__) . '/database_migration_gcash_sqlite.sql';
+$sqlFile = dirname(__DIR__) . '/sql/sqlite/migrations/008_gcash.sql';
 $raw = file_get_contents($sqlFile);
 $statements = array_filter(array_map('trim', preg_split('/;\s*\n/', $raw)));
 
