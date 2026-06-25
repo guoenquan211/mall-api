@@ -66,7 +66,7 @@ class ExceptionHandle extends Handle
             }
             return json([
                 'code' => 500,
-                'msg'  => 'Server error. Set APP_DEBUG=true in .env temporarily, or open /tp-check.php',
+                'msg'  => 'Server error. Open /tp-check.php or set APP_DEBUG=true in .env',
             ], 500);
         }
 

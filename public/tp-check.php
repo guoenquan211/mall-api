@@ -23,90 +23,69 @@ function step(array &$out, string $name, callable $fn): void
 }
 
 try {
+    if (!extension_loaded('pdo_mysql')) {
+        throw new RuntimeException('pdo_mysql 未安装');
+    }
+
     step($out, 'vendor', function () use ($root) {
-        $autoload = $root . '/vendor/autoload.php';
-        if (!is_file($autoload)) {
-            throw new RuntimeException('vendor/autoload.php missing — run composer install');
-        }
-        require $autoload;
+        require $root . '/vendor/autoload.php';
         return 'loaded';
     });
 
     step($out, 'env', function () use ($root) {
         $env = $root . '/.env';
         if (!is_file($env)) {
-            throw new RuntimeException('.env missing — copy from .env.example (NOT .env.dev)');
+            throw new RuntimeException('.env 不存在，从 .env.example 复制并填写 MySQL 账号');
         }
         $ini = parse_ini_file($env, true, INI_SCANNER_RAW);
+        $db = $ini['DATABASE'] ?? [];
+        if (empty($db['DATABASE']) || empty($db['USERNAME'])) {
+            throw new RuntimeException('.env 缺少 [DATABASE] DATABASE 或 USERNAME');
+        }
         return [
-            'file'   => '.env',
-            'driver' => $ini['DATABASE']['DRIVER'] ?? $ini['DATABASE']['TYPE'] ?? '?',
-            'db'     => $ini['DATABASE']['DATABASE'] ?? '?',
-            'user'   => $ini['DATABASE']['USERNAME'] ?? '?',
+            'database' => $db['DATABASE'],
+            'username' => $db['USERNAME'],
+            'hostname' => $db['HOSTNAME'] ?? '127.0.0.1',
         ];
     });
 
-    step($out, 'extensions', function () {
-        return [
-            'pdo_mysql'  => extension_loaded('pdo_mysql'),
-            'pdo_sqlite' => extension_loaded('pdo_sqlite'),
-        ];
-    });
-
-    step($out, 'runtime', function () use ($root) {
-        $dir = $root . '/runtime';
-        if (!is_dir($dir)) {
-            mkdir($dir, 0755, true);
-        }
-        if (!is_writable($dir)) {
-            throw new RuntimeException('runtime/ not writable — chmod 755 or chown www');
-        }
-        return is_writable($dir) ? 'writable' : 'not writable';
-    });
-
-    step($out, 'thinkphp', function () use ($root) {
+    step($out, 'thinkphp', function () {
         $app = new think\App();
         $app->initialize();
-        $cfg = config('database');
+        $cfg = config('database.connections.mysql');
         return [
-            'default'  => $cfg['default'] ?? null,
-            'database' => $cfg['connections'][$cfg['default']]['database'] ?? null,
+            'default'  => config('database.default'),
+            'database' => $cfg['database'] ?? null,
+            'username' => $cfg['username'] ?? null,
         ];
     });
 
     step($out, 'db_connect', function () {
         \think\facade\Db::connect()->getPdo()->query('SELECT 1');
-        return 'SELECT 1 ok';
+        return 'ok';
     });
 
     step($out, 'tables', function () {
-        $tables = ['products', 'product_categories', 'affiliate_program_config', 'users'];
         $info = [];
-        foreach ($tables as $t) {
+        foreach (['products', 'product_categories', 'affiliate_program_config', 'users'] as $t) {
             $info[$t] = (int) \think\facade\Db::table($t)->count();
         }
         return $info;
     });
 
-    step($out, 'api_products', function () {
-        $count = \think\facade\Db::table('products')->where('status', 1)->count();
-        return ['active_products' => $count];
-    });
-
     $out['ok'] = true;
-    $out['hint'] = 'Database OK. If /api still 500, clear runtime/cache/* and retry.';
 } catch (Throwable $e) {
     $out['ok'] = false;
     $out['hint'] = match (true) {
-        str_contains($e->getMessage(), 'could not find driver') =>
-            'Enable pdo_mysql in Baota PHP 8.2 extensions, or set DRIVER=sqlite',
+        str_contains($e->getMessage(), 'pdo_mysql') =>
+            '宝塔 → PHP 8.2 → 安装扩展 → pdo_mysql',
         str_contains($e->getMessage(), 'Access denied') =>
-            'Fix .env DATABASE USERNAME/PASSWORD to match Baota MySQL',
-        str_contains($e->getMessage(), "doesn't exist"), str_contains($e->getMessage(), 'no such table') =>
-            'Import sql/mysql/schema_full.sql in Baota database panel',
-        str_contains($e->getMessage(), '.env missing') =>
-            'Create /www/wwwroot/.../.env with MySQL settings (ThinkPHP ignores .env.dev)',
-        default => 'See failed step above',
+            '.env 里 USERNAME / PASSWORD 与宝塔数据库不一致',
+        str_contains($e->getMessage(), "doesn't exist"), str_contains($e->getMessage(), 'Unknown database') =>
+            '先在宝塔创建数据库，再导入 sql/mysql/schema_full.sql',
+        str_contains($e->getMessage(), '.env') =>
+            $e->getMessage(),
+        default => '导入 sql/mysql/schema_full.sql，并删除 runtime/cache/*',
     };
 }
 
