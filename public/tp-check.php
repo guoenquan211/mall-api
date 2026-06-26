@@ -49,20 +49,39 @@ try {
         ];
     });
 
-    step($out, 'thinkphp', function () {
+    step($out, 'thinkphp', function () use ($root) {
         $app = new think\App();
         $app->initialize();
+        $sessionDir = $root . '/runtime/session';
+        if (!is_dir($sessionDir)) {
+            mkdir($sessionDir, 0755, true);
+        }
+        if (!is_writable($sessionDir)) {
+            throw new RuntimeException('runtime/session/ 不可写 — 验证码与注册需要 Session');
+        }
         $cfg = config('database.connections.mysql');
         return [
             'default'  => config('database.default'),
             'database' => $cfg['database'] ?? null,
             'username' => $cfg['username'] ?? null,
+            'session_dir' => is_writable($sessionDir) ? 'writable' : 'not writable',
         ];
     });
 
     step($out, 'db_connect', function () {
-        \think\facade\Db::connect()->getPdo()->query('SELECT 1');
+        \think\facade\Db::query('SELECT 1');
         return 'ok';
+    });
+
+    step($out, 'users_columns', function () {
+        $required = ['parent_id', 'invite_code', 'affiliate_level', 'locale'];
+        $rows = \think\facade\Db::query('SHOW COLUMNS FROM `users`');
+        $cols = array_column($rows, 'Field');
+        $missing = array_values(array_diff($required, $cols));
+        if ($missing) {
+            throw new RuntimeException('users 表缺少字段: ' . implode(', ', $missing) . ' — 执行 sql/mysql/migrations/009_users_register_columns.sql');
+        }
+        return $cols;
     });
 
     step($out, 'tables', function () {
@@ -83,6 +102,10 @@ try {
             '.env 里 USERNAME / PASSWORD 与宝塔数据库不一致',
         str_contains($e->getMessage(), "doesn't exist"), str_contains($e->getMessage(), 'Unknown database') =>
             '先在宝塔创建数据库，再导入 sql/mysql/schema_full.sql',
+        str_contains($e->getMessage(), 'users 表缺少字段') =>
+            $e->getMessage(),
+        str_contains($e->getMessage(), 'runtime/session') =>
+            $e->getMessage(),
         str_contains($e->getMessage(), '.env') =>
             $e->getMessage(),
         default => '导入 sql/mysql/schema_full.sql，并删除 runtime/cache/*',

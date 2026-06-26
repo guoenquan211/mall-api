@@ -102,20 +102,33 @@ class User extends BaseController
             }
         }
 
-        $data['password'] = password_hash($data['password'], PASSWORD_DEFAULT);
-        $data['nickname'] = $data['nickname'] ?? $data['username'];
-        $data['status']    = 1;
-        $data['points']    = 0;
-        $data['parent_id'] = $parentId;
         $loc = Request::param('locale', 'en');
-        $data['locale'] = in_array($loc, ['zh-TW', 'en'], true) ? $loc : 'en';
-        unset($data['captcha']);
+        $locale = in_array($loc, ['zh-TW', 'en'], true) ? $loc : 'en';
 
-        $user = UserModel::create($data);
-        \app\service\AffiliateService::ensureInviteCode($user);
-        $this->recordLog($user->id, '注册', '用户注册成功');
+        $user = UserModel::create([
+            'username'  => $data['username'],
+            'password'  => password_hash($data['password'], PASSWORD_DEFAULT),
+            'nickname'  => $data['nickname'] ?? $data['username'],
+            'phone'     => $data['phone'] ?? null,
+            'status'    => 1,
+            'points'    => 0,
+            'parent_id' => $parentId,
+            'locale'    => $locale,
+        ]);
 
-        return $this->success($user, ApiLocale::t('user.register_ok'));
+        AffiliateService::ensureInviteCode($user);
+
+        try {
+            $this->recordLog($user->id, '注册', '用户注册成功');
+        } catch (\Throwable $e) {
+            // 日志写入失败不影响注册
+        }
+
+        return $this->success([
+            'id'       => $user->id,
+            'username' => $user->username,
+            'nickname' => $user->nickname,
+        ], ApiLocale::t('user.register_ok'));
     }
 
     public function info($id)
