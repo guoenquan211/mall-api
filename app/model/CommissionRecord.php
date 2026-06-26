@@ -1,9 +1,7 @@
 <?php
 namespace app\model;
 
-use think\Model;
-
-class CommissionRecord extends Model
+class CommissionRecord extends BaseModel
 {
     protected $table = 'commission_records';
 

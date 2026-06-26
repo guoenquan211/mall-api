@@ -1,9 +1,7 @@
 <?php
 namespace app\model;
 
-use think\Model;
-
-class UserAffiliateStat extends Model
+class UserAffiliateStat extends BaseModel
 {
     protected $table = 'user_affiliate_stats';
 

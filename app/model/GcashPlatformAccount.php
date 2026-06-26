@@ -1,9 +1,7 @@
 <?php
 namespace app\model;
 
-use think\Model;
-
-class GcashPlatformAccount extends Model
+class GcashPlatformAccount extends BaseModel
 {
     protected $table = 'gcash_platform_accounts';
     protected $autoWriteTimestamp = true;

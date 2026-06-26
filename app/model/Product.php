@@ -1,9 +1,7 @@
 <?php
 namespace app\model;
 
-use think\Model;
-
-class Product extends Model
+class Product extends BaseModel
 {
     protected $table = 'products';
     // Auto timestamp

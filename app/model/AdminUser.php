@@ -1,9 +1,7 @@
 <?php
 namespace app\model;
 
-use think\Model;
-
-class AdminUser extends Model
+class AdminUser extends BaseModel
 {
     protected $table = 'admin_users';
     protected $autoWriteTimestamp = true;

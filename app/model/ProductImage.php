@@ -1,9 +1,7 @@
 <?php
 namespace app\model;
 
-use think\Model;
-
-class ProductImage extends Model
+class ProductImage extends BaseModel
 {
     protected $table = 'product_images';
     protected $autoWriteTimestamp = true;

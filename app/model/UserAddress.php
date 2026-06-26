@@ -1,9 +1,7 @@
 <?php
 namespace app\model;
 
-use think\Model;
-
-class UserAddress extends Model
+class UserAddress extends BaseModel
 {
     protected $table = 'user_addresses';
     protected $autoWriteTimestamp = true;

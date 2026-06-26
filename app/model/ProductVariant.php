@@ -1,9 +1,7 @@
 <?php
 namespace app\model;
 
-use think\Model;
-
-class ProductVariant extends Model
+class ProductVariant extends BaseModel
 {
     protected $table = 'product_variants';
     protected $autoWriteTimestamp = true;

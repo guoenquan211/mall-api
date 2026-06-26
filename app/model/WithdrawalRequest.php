@@ -1,9 +1,7 @@
 <?php
 namespace app\model;
 
-use think\Model;
-
-class WithdrawalRequest extends Model
+class WithdrawalRequest extends BaseModel
 {
     protected $table = 'withdrawal_requests';
     protected $autoWriteTimestamp = true;

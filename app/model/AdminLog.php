@@ -1,9 +1,7 @@
 <?php
 namespace app\model;
 
-use think\Model;
-
-class AdminLog extends Model
+class AdminLog extends BaseModel
 {
     protected $table = 'admin_logs';
     protected $autoWriteTimestamp = true;
