@@ -5,8 +5,8 @@ return [
     // \think\middleware\CheckRequestCache::class,
     // 多语言加载
     // \think\middleware\LoadLang::class,
-    // Session初始化
-    // \think\middleware\SessionInit::class,
+    // Session 必须开启，验证码 /captcha 与 /api 校验共用同一 session
+    \think\middleware\SessionInit::class,
     // 跨域请求支持 (使用自定义中间件)
     \app\middleware\Cors::class,
 ];

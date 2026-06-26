@@ -82,7 +82,7 @@ class User extends BaseController
             return $this->error(ApiLocale::t('user.captcha_required'));
         }
 
-        if (!captcha_check($data['captcha'])) {
+        if (!captcha_check(trim((string) $data['captcha']))) {
             return $this->error(ApiLocale::t('user.captcha_invalid'));
         }
 
