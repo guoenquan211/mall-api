@@ -49,7 +49,7 @@ try {
         ];
     });
 
-    step($out, 'thinkphp', function () use ($root) {
+    step($out, 'thinkphp', function () use ($root, &$out) {
         $app = new think\App();
         $app->initialize();
         $sessionDir = $root . '/runtime/session';
@@ -60,6 +60,7 @@ try {
             throw new RuntimeException('runtime/session/ 不可写 — 验证码与注册需要 Session');
         }
         $cfg = config('database.connections.mysql');
+        $out['database'] = $cfg['database'] ?? null;
         return [
             'default'  => config('database.default'),
             'database' => $cfg['database'] ?? null,
@@ -74,12 +75,12 @@ try {
     });
 
     step($out, 'users_columns', function () {
-        $required = ['parent_id', 'invite_code', 'affiliate_level', 'locale'];
+        $required = ['parent_id', 'invite_code', 'affiliate_level', 'total_paid_goods', 'locale'];
         $rows = \think\facade\Db::query('SHOW COLUMNS FROM `users`');
         $cols = array_column($rows, 'Field');
         $missing = array_values(array_diff($required, $cols));
         if ($missing) {
-            throw new RuntimeException('users 表缺少字段: ' . implode(', ', $missing) . ' — 执行 sql/mysql/migrations/009_users_register_columns.sql');
+            throw new RuntimeException('users 表缺少字段: ' . implode(', ', $missing) . ' — 执行 sql/mysql/migrations/010_affiliate_safe.sql');
         }
         return $cols;
     });

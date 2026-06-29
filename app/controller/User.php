@@ -367,8 +367,14 @@ class User extends BaseController
             ]);
         } catch (\Throwable $e) {
             $msg = $e->getMessage();
+            $db  = (string) config('database.connections.mysql.database');
             if (str_contains($msg, 'doesn\'t exist') || str_contains($msg, 'Unknown column') || str_contains($msg, 'Base table or view not found')) {
-                return $this->error('分销表未就绪，请执行 sql/mysql/migrations/010_affiliate_safe.sql');
+                return $this->error(
+                    '分销加载失败: ' . $msg
+                    . '（API 连接的数据库: ' . $db
+                    . '。请在 phpMyAdmin 选中该库执行 010_affiliate_safe.sql；'
+                    . '并上传 app/model/BaseModel.php。访问 /affiliate-check.php 查看哪一步失败）'
+                );
             }
             throw $e;
         }
