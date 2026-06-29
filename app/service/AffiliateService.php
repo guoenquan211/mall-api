@@ -124,6 +124,38 @@ class AffiliateService
             ->count();
     }
 
+    public static function directCount(int $parentId): int
+    {
+        return (int) UserModel::where('parent_id', $parentId)->count();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public static function directDownlineList(int $userId): array
+    {
+        $rows = UserModel::where('parent_id', $userId)
+            ->field('id,username,nickname,affiliate_level,total_paid_goods,created_at,status')
+            ->order('id', 'desc')
+            ->select();
+
+        $list = [];
+        foreach ($rows as $row) {
+            $list[] = [
+                'id'               => (int) $row->id,
+                'username'         => (string) $row->username,
+                'nickname'         => (string) ($row->nickname ?: $row->username),
+                'affiliate_level'  => (int) $row->affiliate_level,
+                'total_paid_goods' => (float) $row->total_paid_goods,
+                'created_at'       => $row->created_at ? (int) $row->created_at : null,
+                'is_valid'         => (int) $row->affiliate_level >= 1,
+                'status'           => (int) $row->status,
+            ];
+        }
+
+        return $list;
+    }
+
     public static function getOrCreateStats(int $userId): UserAffiliateStat
     {
         $s = UserAffiliateStat::find($userId);
@@ -359,12 +391,14 @@ class AffiliateService
         $team  = (float) $stats->downline_pv_total;
         $l1Cnt = self::directCountByMinLevel($userId, 1);
         $l2Cnt = self::directCountByMinLevel($userId, 2);
+        $directCnt = self::directCount($userId);
         $ords  = self::completedOrderCount($userId);
 
         return [
             'affiliate_level'     => $lvl,
             'total_paid_goods'    => $spent,
             'team_pv'             => $team,
+            'direct_count'        => $directCnt,
             'direct_l1_count'     => $l1Cnt,
             'direct_l2_count'     => $l2Cnt,
             'completed_orders'    => $ords,

@@ -96,7 +96,7 @@ class User extends BaseController
 
         $parentId = null;
         if ($invite !== '') {
-            $inv = UserModel::where('invite_code', $invite)->find();
+            $inv = UserModel::whereRaw('UPPER(invite_code) = ?', [$invite])->find();
             if ($inv) {
                 $parentId = (int) $inv->id;
             }
@@ -345,23 +345,32 @@ class User extends BaseController
         if (!$user) {
             return $this->error(ApiLocale::t('user.not_found'));
         }
-        $code = AffiliateService::ensureInviteCode($user);
-        $cfg  = AffiliateService::publicConfigPayload();
+        try {
+            $code = AffiliateService::ensureInviteCode($user);
+            $cfg  = AffiliateService::publicConfigPayload();
 
-        $sum = static function (string $st) use ($userId): float {
-            return (float) CommissionRecord::where('user_id', $userId)->where('status', $st)->sum('amount');
-        };
+            $sum = static function (string $st) use ($userId): float {
+                return (float) CommissionRecord::where('user_id', $userId)->where('status', $st)->sum('amount');
+            };
 
-        return $this->success([
-            'invite_code'          => $code,
-            'affiliate_level'      => (int) $user->affiliate_level,
-            'parent_id'            => $user->parent_id ? (int) $user->parent_id : null,
-            'total_paid_goods'     => (float) $user->total_paid_goods,
-            'config'               => $cfg,
-            'progress'             => AffiliateService::userAffiliateProgress($userId),
-            'commission_pending'   => $sum('pending'),
-            'commission_available' => $sum('available'),
-            'commission_settled'   => $sum('settled'),
-        ]);
+            return $this->success([
+                'invite_code'          => $code,
+                'affiliate_level'      => (int) $user->affiliate_level,
+                'parent_id'            => $user->parent_id ? (int) $user->parent_id : null,
+                'total_paid_goods'     => (float) $user->total_paid_goods,
+                'config'               => $cfg,
+                'progress'             => AffiliateService::userAffiliateProgress($userId),
+                'downline'             => AffiliateService::directDownlineList($userId),
+                'commission_pending'   => $sum('pending'),
+                'commission_available' => $sum('available'),
+                'commission_settled'   => $sum('settled'),
+            ]);
+        } catch (\Throwable $e) {
+            $msg = $e->getMessage();
+            if (str_contains($msg, 'doesn\'t exist') || str_contains($msg, 'Unknown column') || str_contains($msg, 'Base table or view not found')) {
+                return $this->error('分销表未就绪，请执行 sql/mysql/migrations/010_affiliate_safe.sql');
+            }
+            throw $e;
+        }
     }
 }

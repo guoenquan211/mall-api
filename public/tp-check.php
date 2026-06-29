@@ -86,10 +86,40 @@ try {
 
     step($out, 'tables', function () {
         $info = [];
-        foreach (['products', 'product_categories', 'affiliate_program_config', 'users'] as $t) {
+        foreach (['products', 'product_categories', 'affiliate_program_config', 'user_affiliate_stats', 'commission_records', 'users'] as $t) {
             $info[$t] = (int) \think\facade\Db::table($t)->count();
         }
         return $info;
+    });
+
+    step($out, 'affiliate_ready', function () {
+        $requiredTables = ['affiliate_program_config', 'user_affiliate_stats', 'commission_records'];
+        $missing = [];
+        foreach ($requiredTables as $t) {
+            $rows = \think\facade\Db::query(
+                'SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?',
+                [$t]
+            );
+            if (!$rows) {
+                $missing[] = $t;
+            }
+        }
+        if ($missing) {
+            throw new RuntimeException(
+                '缺少分销表: ' . implode(', ', $missing) . ' — 在 phpMyAdmin 执行 sql/mysql/migrations/010_affiliate_safe.sql'
+            );
+        }
+        $cfg = (int) \think\facade\Db::table('affiliate_program_config')->where('id', 1)->count();
+        if ($cfg < 1) {
+            throw new RuntimeException('affiliate_program_config 无默认配置 — 执行 010_affiliate_safe.sql');
+        }
+        $userCols = array_column(\think\facade\Db::query('SHOW COLUMNS FROM `users`'), 'Field');
+        $needUser = ['invite_code', 'parent_id', 'affiliate_level', 'total_paid_goods'];
+        $missingUser = array_values(array_diff($needUser, $userCols));
+        if ($missingUser) {
+            throw new RuntimeException('users 表缺少分销字段: ' . implode(', ', $missingUser));
+        }
+        return ['affiliate_program_config' => $cfg, 'status' => 'ok'];
     });
 
     $out['ok'] = true;
@@ -103,6 +133,8 @@ try {
         str_contains($e->getMessage(), "doesn't exist"), str_contains($e->getMessage(), 'Unknown database') =>
             '先在宝塔创建数据库，再导入 sql/mysql/schema_full.sql',
         str_contains($e->getMessage(), 'users 表缺少字段') =>
+            $e->getMessage(),
+        str_contains($e->getMessage(), '缺少分销表'), str_contains($e->getMessage(), 'affiliate_program_config') =>
             $e->getMessage(),
         str_contains($e->getMessage(), 'runtime/session') =>
             $e->getMessage(),
