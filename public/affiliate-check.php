@@ -74,9 +74,9 @@ try {
 
     step($out, 'user_affiliate_stats_rw', function () {
         $uid = 1;
-        $row = \think\facade\Db::table('user_affiliate_stats')->where('user_id', $uid)->find();
-        if (!$row) {
-            \think\facade\Db::table('user_affiliate_stats')->insert([
+        $s = \app\model\UserAffiliateStat::find($uid);
+        if (!$s) {
+            \app\model\UserAffiliateStat::create([
                 'user_id'           => $uid,
                 'downline_pv_total' => 0,
                 'updated_at'        => time(),
