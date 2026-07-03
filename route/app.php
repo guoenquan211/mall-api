@@ -59,15 +59,16 @@ Route::group('api', function () {
 
     Route::get('affiliate/public-config', 'Affiliate/publicConfig');
     Route::get('affiliate/invite-lookup', 'Affiliate/inviteLookup');
+    Route::get('home/public-config', 'SiteHome/publicConfig');
     Route::get('affiliate-admin/config', 'AffiliateAdmin/getConfig');
     Route::post('affiliate-admin/config', 'AffiliateAdmin/saveConfig');
     Route::post('affiliate-admin/unlock-commissions', 'AffiliateAdmin/unlockCommissions');
     Route::post('affiliate-admin/settle-commissions', 'AffiliateAdmin/settleCommissions');
     Route::post('affiliate-admin/run-cron', 'AffiliateAdmin/runCron');
+    Route::get('home-admin/config', 'SiteHomeAdmin/getConfig');
+    Route::post('home-admin/config', 'SiteHomeAdmin/saveConfig');
 
-    // Admin manages user addresses via User controller or dedicated Address controller? 
-    // Admin likely manages addresses under User detail.
-    // Let's add address management routes
+    // Admin manages user addresses
     Route::get('addresses', 'User/addresses'); // If query by user_id
     Route::post('addresses/save', 'User/saveAddress');
     Route::delete('addresses/:id', 'User/deleteAddress');
