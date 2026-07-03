@@ -59,6 +59,7 @@ Route::group('api', function () {
 
     Route::get('affiliate/public-config', 'Affiliate/publicConfig');
     Route::get('affiliate/invite-lookup', 'Affiliate/inviteLookup');
+    Route::post('affiliate/track-click', 'Affiliate/trackClick');
     Route::get('home/public-config', 'SiteHome/publicConfig');
     Route::get('affiliate-admin/config', 'AffiliateAdmin/getConfig');
     Route::post('affiliate-admin/config', 'AffiliateAdmin/saveConfig');

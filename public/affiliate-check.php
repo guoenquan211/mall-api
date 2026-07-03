@@ -29,7 +29,7 @@ try {
     $out['database'] = $dbName;
 
     step($out, 'tables', function () {
-        $need = ['affiliate_program_config', 'user_affiliate_stats', 'commission_records'];
+        $need = ['affiliate_program_config', 'user_affiliate_stats', 'commission_records', 'affiliate_product_stats'];
         $missing = [];
         foreach ($need as $t) {
             $rows = \think\facade\Db::query(

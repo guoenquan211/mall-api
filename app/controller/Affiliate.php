@@ -35,4 +35,20 @@ class Affiliate extends BaseController
             ],
         ]);
     }
+
+    /** 记录推广链接访问（ref 参数 + 可选商品 ID） */
+    public function trackClick()
+    {
+        $code = trim((string) Request::param('ref', Request::param('code', '')));
+        $productId = (int) Request::param('product_id', 0);
+        if ($code === '') {
+            return json(['code' => 400, 'msg' => ApiLocale::t('affiliate.code_missing')]);
+        }
+        $ok = AffiliateService::trackLinkClick($code, $productId);
+        if (!$ok) {
+            return json(['code' => 404, 'msg' => ApiLocale::t('affiliate.code_invalid')]);
+        }
+
+        return json(['code' => 0, 'msg' => 'ok']);
+    }
 }

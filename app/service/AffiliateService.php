@@ -4,10 +4,13 @@ declare(strict_types=1);
 namespace app\service;
 
 use app\model\AffiliateProgramConfig;
+use app\model\AffiliateProductStat;
 use app\model\CommissionRecord;
 use app\model\Order as OrderModel;
+use app\model\Product as ProductModel;
 use app\model\User as UserModel;
 use app\model\UserAffiliateStat;
+use think\facade\Db;
 
 class AffiliateService
 {
@@ -279,6 +282,7 @@ class AffiliateService
             3 => $order->b3_user_id ? (int) $order->b3_user_id : null,
         ];
 
+        $beneficiaryAmounts = [];
         foreach ([1, 2, 3] as $tier) {
             $bid = $benefMap[$tier];
             if (!$bid) {
@@ -307,6 +311,11 @@ class AffiliateService
                 'unlock_at'  => $unlockAt,
                 'created_at' => time(),
             ]);
+            $beneficiaryAmounts[$bid] = ($beneficiaryAmounts[$bid] ?? 0) + $amount;
+        }
+
+        if ($beneficiaryAmounts !== []) {
+            self::recordProductStatsFromOrder($order, $beneficiaryAmounts);
         }
     }
 
@@ -435,5 +444,193 @@ class AffiliateService
             'compliance_rules_text'  => self::defaultComplianceRulesText(),
             'max_tier'               => 3,
         ];
+    }
+
+    /** 记录推广链接点击（ref 邀请码 + 可选商品 ID，0=首页） */
+    public static function trackLinkClick(string $inviteCode, int $productId = 0): bool
+    {
+        $code = strtoupper(trim($inviteCode));
+        if ($code === '') {
+            return false;
+        }
+        $u = UserModel::where('invite_code', $code)->find();
+        if (!$u) {
+            return false;
+        }
+        if ($productId > 0 && !ProductModel::where('id', $productId)->where('status', 1)->find()) {
+            return false;
+        }
+
+        return self::incrementClick((int) $u->id, max(0, $productId));
+    }
+
+    /**
+     * @return array{shop_link: array<string, mixed>, product_links: list<array<string, mixed>>}
+     */
+    public static function promotionLinksPayload(int $userId, string $inviteCode): array
+    {
+        $statsMap = [];
+        try {
+            $rows = AffiliateProductStat::where('user_id', $userId)->select();
+            foreach ($rows as $row) {
+                $statsMap[(int) $row->product_id] = [
+                    'click_count'      => (int) $row->click_count,
+                    'order_count'      => (int) $row->order_count,
+                    'commission_total' => (float) $row->commission_total,
+                ];
+            }
+        } catch (\Throwable) {
+            // 表未迁移时仍返回链接列表
+        }
+
+        $emptyStat = static fn (): array => [
+            'click_count'      => 0,
+            'order_count'      => 0,
+            'commission_total' => 0.0,
+        ];
+
+        $shopStat = $statsMap[0] ?? $emptyStat();
+        $shopLink = [
+            'product_id'       => 0,
+            'name'             => '首页',
+            'name_en'          => 'Home',
+            'image'            => null,
+            'path'             => '/',
+            'click_count'      => $shopStat['click_count'],
+            'order_count'      => $shopStat['order_count'],
+            'commission_total' => $shopStat['commission_total'],
+        ];
+
+        $products = ProductModel::where('status', 1)
+            ->order('id', 'asc')
+            ->field('id,name,name_en,image,price')
+            ->select();
+
+        $productLinks = [];
+        foreach ($products as $p) {
+            $pid  = (int) $p->id;
+            $stat = $statsMap[$pid] ?? $emptyStat();
+            $productLinks[] = [
+                'product_id'       => $pid,
+                'name'             => (string) $p->name,
+                'name_en'          => $p->name_en ? (string) $p->name_en : null,
+                'image'            => $p->image ? (string) $p->image : null,
+                'price'            => (float) $p->price,
+                'path'             => '/product/' . $pid,
+                'click_count'      => $stat['click_count'],
+                'order_count'      => $stat['order_count'],
+                'commission_total' => $stat['commission_total'],
+            ];
+        }
+
+        return [
+            'invite_code'    => $inviteCode,
+            'shop_link'      => $shopLink,
+            'product_links'  => $productLinks,
+        ];
+    }
+
+    /**
+     * @param array<int, float> $beneficiaryAmounts user_id => commission for this order
+     */
+    private static function recordProductStatsFromOrder(OrderModel $order, array $beneficiaryAmounts): void
+    {
+        try {
+            $items = Db::name('order_items')->where('order_id', (int) $order->id)->select()->toArray();
+            if ($items === []) {
+                return;
+            }
+
+            $lineTotals = [];
+            $goodsSum   = 0.0;
+            foreach ($items as $it) {
+                $pid = (int) $it['product_id'];
+                $amt = (float) $it['price'] * (int) $it['quantity'];
+                $lineTotals[$pid] = ($lineTotals[$pid] ?? 0) + $amt;
+                $goodsSum += $amt;
+            }
+            if ($goodsSum <= 0) {
+                $goodsSum = (float) $order->goods_amount;
+            }
+            if ($goodsSum <= 0) {
+                $goodsSum = (float) $order->total_amount;
+            }
+            if ($goodsSum <= 0) {
+                return;
+            }
+
+            foreach ($beneficiaryAmounts as $uid => $commTotal) {
+                $uid = (int) $uid;
+                $commTotal = (float) $commTotal;
+                if ($uid <= 0 || $commTotal <= 0) {
+                    continue;
+                }
+                foreach ($lineTotals as $pid => $lineAmt) {
+                    $share = round($commTotal * ($lineAmt / $goodsSum), 2);
+                    if ($share > 0) {
+                        self::incrementOrderStat($uid, (int) $pid, $share);
+                    }
+                }
+            }
+        } catch (\Throwable) {
+            // 统计表未就绪时不影响订单流程
+        }
+    }
+
+    private static function incrementClick(int $userId, int $productId): bool
+    {
+        try {
+            $now = time();
+            $exists = Db::name('affiliate_product_stats')
+                ->where('user_id', $userId)
+                ->where('product_id', $productId)
+                ->find();
+            if ($exists) {
+                Db::name('affiliate_product_stats')
+                    ->where('user_id', $userId)
+                    ->where('product_id', $productId)
+                    ->inc('click_count')
+                    ->update(['updated_at' => $now]);
+            } else {
+                Db::name('affiliate_product_stats')->insert([
+                    'user_id'          => $userId,
+                    'product_id'       => $productId,
+                    'click_count'      => 1,
+                    'order_count'      => 0,
+                    'commission_total' => 0,
+                    'updated_at'       => $now,
+                ]);
+            }
+
+            return true;
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    private static function incrementOrderStat(int $userId, int $productId, float $commissionShare): void
+    {
+        $now = time();
+        $exists = Db::name('affiliate_product_stats')
+            ->where('user_id', $userId)
+            ->where('product_id', $productId)
+            ->find();
+        if ($exists) {
+            Db::name('affiliate_product_stats')
+                ->where('user_id', $userId)
+                ->where('product_id', $productId)
+                ->inc('order_count')
+                ->inc('commission_total', $commissionShare)
+                ->update(['updated_at' => $now]);
+        } else {
+            Db::name('affiliate_product_stats')->insert([
+                'user_id'          => $userId,
+                'product_id'       => $productId,
+                'click_count'      => 0,
+                'order_count'      => 1,
+                'commission_total' => $commissionShare,
+                'updated_at'       => $now,
+            ]);
+        }
     }
 }

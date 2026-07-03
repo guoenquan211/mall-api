@@ -364,6 +364,7 @@ class User extends BaseController
                 'commission_pending'   => $sum('pending'),
                 'commission_available' => $sum('available'),
                 'commission_settled'   => $sum('settled'),
+                'promotion'            => AffiliateService::promotionLinksPayload($userId, $code),
             ]);
         } catch (\Throwable $e) {
             $msg = $e->getMessage();
