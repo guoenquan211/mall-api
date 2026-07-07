@@ -273,4 +273,73 @@ class Order extends BaseController
         }
         return $this->success(null, ApiLocale::t('common.delete_ok'));
     }
+
+    /** 会员删除自己的订单（待付款/已取消） */
+    public function userDelete()
+    {
+        $userId  = (int) Request::param('user_id', 0);
+        $orderId = (int) Request::param('order_id', 0);
+        if ($userId <= 0) {
+            return $this->error(ApiLocale::t('user.id_required'));
+        }
+        if ($orderId <= 0) {
+            return $this->error(ApiLocale::t('order.id_required'));
+        }
+
+        $order = OrderModel::with(['items'])->find($orderId);
+        if (!$order) {
+            return $this->error(ApiLocale::t('order.not_found'));
+        }
+        if ((int) $order->user_id !== $userId) {
+            return $this->error(ApiLocale::t('order.forbidden'));
+        }
+        if (!$this->canUserDeleteOrder($order)) {
+            return $this->error(ApiLocale::t('order.cannot_delete'));
+        }
+
+        Db::startTrans();
+        try {
+            $this->restoreOrderStock($order);
+            $orderNo = (string) $order->order_no;
+            $order->delete();
+
+            UserLog::create([
+                'user_id' => $userId,
+                'action'  => 'delete_order',
+                'ip'      => Request::ip(),
+                'detail'  => "删除订单 {$orderNo}",
+            ]);
+
+            Db::commit();
+
+            return $this->success(null, ApiLocale::t('order.delete_ok'));
+        } catch (\Throwable $e) {
+            Db::rollback();
+
+            return $this->error(ApiLocale::t('order.delete_failed') . ': ' . $e->getMessage());
+        }
+    }
+
+    private function canUserDeleteOrder(OrderModel $order): bool
+    {
+        $status = (int) $order->status;
+        $ps     = (string) ($order->payment_status ?? 'pending');
+
+        if ($status === 4) {
+            return true;
+        }
+
+        return $status === 0 && in_array($ps, ['pending', 'rejected'], true);
+    }
+
+    private function restoreOrderStock(OrderModel $order): void
+    {
+        foreach ($order->items as $item) {
+            $pid = (int) $item->product_id;
+            $qty = (int) $item->quantity;
+            if ($pid > 0 && $qty > 0) {
+                Product::where('id', $pid)->inc('stock', $qty)->update();
+            }
+        }
+    }
 }

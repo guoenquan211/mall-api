@@ -37,6 +37,7 @@ Route::group('api', function () {
     Route::get('user/wallet-flows', 'WalletFlow/userIndex');
     Route::get('user/info/:id', 'User/info');
     Route::post('user/profile', 'User/updateProfile');
+    Route::post('user/delete-order', 'Order/userDelete');
 
     Route::get('gcash/public-accounts', 'Gcash/publicAccounts');
     Route::get('gcash/wallet-summary', 'Gcash/walletSummary');

@@ -22,6 +22,8 @@ class SiteHomeAdmin extends BaseController
             'hero_subtitle_zh', 'hero_subtitle_en', 'hero_brand_text',
             'hero_title_zh', 'hero_title_en', 'hero_text_zh', 'hero_text_en',
             'hero_cta_zh', 'hero_cta_en', 'hero_cta_link', 'hero_image',
+            'hero_detail_show', 'hero_detail_text_zh', 'hero_detail_text_en',
+            'hero_detail_link_type', 'hero_detail_link_value',
         ]);
         foreach ($patch as $k => $v) {
             if ($v === null) {
@@ -38,6 +40,16 @@ class SiteHomeAdmin extends BaseController
         if (isset($patch['hero_cta_link'])) {
             $link = trim((string) $patch['hero_cta_link']);
             $patch['hero_cta_link'] = $link !== '' ? $link : '/products';
+        }
+
+        if (array_key_exists('hero_detail_show', $patch)) {
+            $patch['hero_detail_show'] = (int) $patch['hero_detail_show'] === 1 ? 1 : 0;
+        }
+        if (isset($patch['hero_detail_link_type'])) {
+            $patch['hero_detail_link_type'] = trim((string) $patch['hero_detail_link_type']);
+        }
+        if (isset($patch['hero_detail_link_value'])) {
+            $patch['hero_detail_link_value'] = trim((string) $patch['hero_detail_link_value']);
         }
 
         $patch['updated_at'] = time();

@@ -32,9 +32,43 @@ class HomeConfigService
             'hero_cta_zh'      => '選購身體乳',
             'hero_cta_en'      => 'Shop body lotion',
             'hero_cta_link'    => '/products',
-            'hero_image'       => '/images/stock/hero.jpg',
+            'hero_image'       => '',
+            'hero_detail_show' => 0,
+            'hero_detail_text_zh' => '查看詳情',
+            'hero_detail_text_en' => 'View details',
+            'hero_detail_link_type' => '',
+            'hero_detail_link_value' => '',
             'updated_at'       => time(),
         ]);
+    }
+
+    public static function resolveDetailHref(object $row): string
+    {
+        if ((int) ($row->hero_detail_show ?? 0) !== 1) {
+            return '';
+        }
+
+        $type = trim((string) ($row->hero_detail_link_type ?? ''));
+        $val  = trim((string) ($row->hero_detail_link_value ?? ''));
+        if ($type === '' || $val === '') {
+            return '';
+        }
+
+        switch ($type) {
+            case 'product':
+                $id = (int) $val;
+                return $id > 0 ? '/product/' . $id : '';
+            case 'news':
+                $id = (int) $val;
+                return $id > 0 ? '/news?id=' . $id : '';
+            case 'knowledge':
+                $id = (int) $val;
+                return $id > 0 ? '/knowledge?id=' . $id : '';
+            case 'custom':
+                return $val;
+            default:
+                return '';
+        }
     }
 
     /**
@@ -56,6 +90,12 @@ class HomeConfigService
             'hero_cta_en'      => (string) ($c->hero_cta_en ?? ''),
             'hero_cta_link'    => (string) ($c->hero_cta_link ?: '/products'),
             'hero_image'       => (string) ($c->hero_image ?? ''),
+            'hero_detail_show' => (int) ($c->hero_detail_show ?? 0),
+            'hero_detail_text_zh' => (string) ($c->hero_detail_text_zh ?? '查看詳情'),
+            'hero_detail_text_en' => (string) ($c->hero_detail_text_en ?? 'View details'),
+            'hero_detail_link_type' => (string) ($c->hero_detail_link_type ?? ''),
+            'hero_detail_link_value' => (string) ($c->hero_detail_link_value ?? ''),
+            'hero_detail_href' => self::resolveDetailHref($c),
         ];
     }
 }
