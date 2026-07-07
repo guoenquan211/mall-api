@@ -22,6 +22,45 @@ class AffiliateService
             . "• No joining fee, no forced inventory, free to join as an affiliate";
     }
 
+    public static function defaultComplianceRulesTextZh(): string
+    {
+        return "合規說明\n"
+            . "• 合法三級推薦獎勵，不超過三級\n"
+            . "• 佣金僅基於真實商品訂單，不含招商費用\n"
+            . "• 無加盟費、無囤貨要求，免費加入推廣";
+    }
+
+    public static function defaultRewardRulesTextZh(): string
+    {
+        return "自用省錢，分享賺錢\n"
+            . "• 你推薦朋友買 → 你拿一級佣金\n"
+            . "• 朋友再推薦別人買 → 你拿二級佣金\n"
+            . "• 朋友的下級再推薦買 → 你拿三級佣金";
+    }
+
+    public static function defaultRewardRulesTextEn(): string
+    {
+        return "Save when you shop, earn when you share\n"
+            . "• You refer a friend → Tier 1 commission\n"
+            . "• Your friend refers someone → Tier 2 commission\n"
+            . "• Their referral buys → Tier 3 commission";
+    }
+
+    public static function defaultPublicSlogansTextZh(): string
+    {
+        return "美妝自用省錢，分享賺錢\n"
+            . "三級分銷，真實賣貨拿佣金\n"
+            . "無加盟費、無囤貨、無壓力\n"
+            . "賣產品都能賺，分享就能變現";
+    }
+
+    public static function defaultPublicSlogansTextEn(): string
+    {
+        return "Shop beauty, share to earn\n"
+            . "3-tier referral on real product sales\n"
+            . "No joining fee, no inventory, no pressure";
+    }
+
     public static function getConfigRow(): AffiliateProgramConfig
     {
         $row = AffiliateProgramConfig::find(1);
@@ -39,8 +78,11 @@ class AffiliateService
             'id'                   => 1,
             'currency_suffix'      => 'P',
             'level1_name'          => '美妆分享官',
+            'level1_name_en'       => 'Beauty Ambassador',
             'level2_name'          => '美妆达人',
+            'level2_name_en'       => 'Beauty Expert',
             'level3_name'          => '美妆合伙人',
+            'level3_name_en'       => 'Beauty Partner',
             'level1_spend_threshold' => 1000,
             'level1_any_order'     => 1,
             'level2_direct_l1_min' => 5,
@@ -52,13 +94,12 @@ class AffiliateService
             'commission_rate_3'    => 0.04,
             'settlement_day'       => 10,
             'after_sale_days'      => 7,
-            'reward_rules_text'    => "Shop & share to earn\n"
-                . "• Direct referrals (Tier 1): 20% commission\n"
-                . "• Their referrals (Tier 2): 10% commission\n"
-                . "• Tier 3 orders: 4% commission",
-            'public_slogans_text'  => self::defaultComplianceRulesText()
-                . "\n\nQualified order: paid → delivered → 7-day window → commission unlocks\n"
-                . "Payout: withdrawable balance settled on the 10th each month (PHP via GCash)",
+            'reward_rules_text'    => self::defaultRewardRulesTextZh(),
+            'reward_rules_text_en' => self::defaultRewardRulesTextEn(),
+            'public_slogans_text'  => self::defaultPublicSlogansTextZh(),
+            'public_slogans_text_en' => self::defaultPublicSlogansTextEn(),
+            'compliance_rules_text' => self::defaultComplianceRulesTextZh(),
+            'compliance_rules_text_en' => self::defaultComplianceRulesText(),
             'updated_at'           => time(),
         ]);
     }
@@ -426,8 +467,11 @@ class AffiliateService
         return [
             'currency_suffix'     => $c->currency_suffix,
             'level1_name'         => $c->level1_name,
+            'level1_name_en'      => (string) ($c->level1_name_en ?? ''),
             'level2_name'         => $c->level2_name,
+            'level2_name_en'      => (string) ($c->level2_name_en ?? ''),
             'level3_name'         => $c->level3_name,
+            'level3_name_en'      => (string) ($c->level3_name_en ?? ''),
             'level1_spend'        => (float) $c->level1_spend_threshold,
             'level1_any_order'    => (int) $c->level1_any_order,
             'level2_direct_l1'    => (int) $c->level2_direct_l1_min,
@@ -439,9 +483,12 @@ class AffiliateService
             'commission_rate_3'   => (float) $c->commission_rate_3,
             'settlement_day'      => (int) $c->settlement_day,
             'after_sale_days'     => (int) $c->after_sale_days,
-            'reward_rules_text'      => (string) $c->reward_rules_text,
-            'public_slogans_text'    => (string) $c->public_slogans_text,
-            'compliance_rules_text'  => self::defaultComplianceRulesText(),
+            'reward_rules_text'      => (string) ($c->reward_rules_text ?? self::defaultRewardRulesTextZh()),
+            'reward_rules_text_en'   => (string) ($c->reward_rules_text_en ?? self::defaultRewardRulesTextEn()),
+            'public_slogans_text'    => (string) ($c->public_slogans_text ?? self::defaultPublicSlogansTextZh()),
+            'public_slogans_text_en' => (string) ($c->public_slogans_text_en ?? self::defaultPublicSlogansTextEn()),
+            'compliance_rules_text'    => (string) ($c->compliance_rules_text ?? self::defaultComplianceRulesTextZh()),
+            'compliance_rules_text_en' => (string) ($c->compliance_rules_text_en ?? self::defaultComplianceRulesText()),
             'max_tier'               => 3,
         ];
     }

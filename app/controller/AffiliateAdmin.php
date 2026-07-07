@@ -19,10 +19,14 @@ class AffiliateAdmin extends BaseController
     public function saveConfig()
     {
         $patch = Request::only([
-            'currency_suffix', 'level1_name', 'level2_name', 'level3_name',
+            'currency_suffix', 'level1_name', 'level1_name_en', 'level2_name', 'level2_name_en',
+            'level3_name', 'level3_name_en',
             'level1_spend_threshold', 'level1_any_order', 'level2_direct_l1_min', 'level2_team_pv',
             'level3_direct_l2_min', 'level3_team_pv', 'commission_rate_1', 'commission_rate_2', 'commission_rate_3',
-            'settlement_day', 'after_sale_days', 'reward_rules_text', 'public_slogans_text',
+            'settlement_day', 'after_sale_days',
+            'reward_rules_text', 'reward_rules_text_en',
+            'public_slogans_text', 'public_slogans_text_en',
+            'compliance_rules_text', 'compliance_rules_text_en',
         ]);
         foreach ($patch as $k => $v) {
             if ($v === null) {
