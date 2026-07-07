@@ -32,6 +32,8 @@ class HomeConfigService
             'hero_cta_zh'      => '選購身體乳',
             'hero_cta_en'      => 'Shop body lotion',
             'hero_cta_link'    => '/products',
+            'hero_cta_link_type' => 'products',
+            'hero_cta_link_value' => '',
             'hero_image'       => '',
             'hero_detail_show' => 0,
             'hero_detail_text_zh' => '查看詳情',
@@ -42,6 +44,35 @@ class HomeConfigService
         ]);
     }
 
+    public static function resolveLinkHref(string $type, string $val, string $legacyLink = ''): string
+    {
+        $type = trim($type);
+        $val  = trim($val);
+
+        if ($type === '') {
+            $legacy = trim($legacyLink);
+            return $legacy !== '' ? $legacy : '/products';
+        }
+
+        switch ($type) {
+            case 'home_collection':
+                return '#home-collection';
+            case 'products':
+                return '/products';
+            case 'product':
+                $id = (int) $val;
+                return $id > 0 ? '/product/' . $id : '/products';
+            case 'news':
+                $id = (int) $val;
+                return $id > 0 ? '/news?id=' . $id : '/news';
+            case 'knowledge':
+                $id = (int) $val;
+                return $id > 0 ? '/knowledge?id=' . $id : '/knowledge';
+            default:
+                return trim($legacyLink) !== '' ? trim($legacyLink) : '/products';
+        }
+    }
+
     public static function resolveDetailHref(object $row): string
     {
         if ((int) ($row->hero_detail_show ?? 0) !== 1) {
@@ -50,25 +81,11 @@ class HomeConfigService
 
         $type = trim((string) ($row->hero_detail_link_type ?? ''));
         $val  = trim((string) ($row->hero_detail_link_value ?? ''));
-        if ($type === '' || $val === '') {
+        if ($type === '' || $val === '' || !in_array($type, ['product', 'news', 'knowledge'], true)) {
             return '';
         }
 
-        switch ($type) {
-            case 'product':
-                $id = (int) $val;
-                return $id > 0 ? '/product/' . $id : '';
-            case 'news':
-                $id = (int) $val;
-                return $id > 0 ? '/news?id=' . $id : '';
-            case 'knowledge':
-                $id = (int) $val;
-                return $id > 0 ? '/knowledge?id=' . $id : '';
-            case 'custom':
-                return $val;
-            default:
-                return '';
-        }
+        return self::resolveLinkHref($type, $val);
     }
 
     /**
@@ -88,11 +105,15 @@ class HomeConfigService
             'hero_text_en'     => (string) ($c->hero_text_en ?? ''),
             'hero_cta_zh'      => (string) ($c->hero_cta_zh ?? ''),
             'hero_cta_en'      => (string) ($c->hero_cta_en ?? ''),
-            'hero_cta_link'    => (string) ($c->hero_cta_link ?: '/products'),
+            'hero_cta_link_type' => (string) ($c->hero_cta_link_type ?? ''),
+            'hero_cta_link_value' => (string) ($c->hero_cta_link_value ?? ''),
+            'hero_cta_href'    => self::resolveLinkHref(
+                (string) ($c->hero_cta_link_type ?? ''),
+                (string) ($c->hero_cta_link_value ?? ''),
+                (string) ($c->hero_cta_link ?? '/products')
+            ),
             'hero_image'       => (string) ($c->hero_image ?? ''),
             'hero_detail_show' => (int) ($c->hero_detail_show ?? 0),
-            'hero_detail_text_zh' => (string) ($c->hero_detail_text_zh ?? '查看詳情'),
-            'hero_detail_text_en' => (string) ($c->hero_detail_text_en ?? 'View details'),
             'hero_detail_link_type' => (string) ($c->hero_detail_link_type ?? ''),
             'hero_detail_link_value' => (string) ($c->hero_detail_link_value ?? ''),
             'hero_detail_href' => self::resolveDetailHref($c),
