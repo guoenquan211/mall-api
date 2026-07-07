@@ -103,15 +103,6 @@ class HomeConfigService
             'hero_title_en'    => (string) ($c->hero_title_en ?? ''),
             'hero_text_zh'     => (string) ($c->hero_text_zh ?? ''),
             'hero_text_en'     => (string) ($c->hero_text_en ?? ''),
-            'hero_cta_zh'      => (string) ($c->hero_cta_zh ?? ''),
-            'hero_cta_en'      => (string) ($c->hero_cta_en ?? ''),
-            'hero_cta_link_type' => (string) ($c->hero_cta_link_type ?? ''),
-            'hero_cta_link_value' => (string) ($c->hero_cta_link_value ?? ''),
-            'hero_cta_href'    => self::resolveLinkHref(
-                (string) ($c->hero_cta_link_type ?? ''),
-                (string) ($c->hero_cta_link_value ?? ''),
-                (string) ($c->hero_cta_link ?? '/products')
-            ),
             'hero_image'       => (string) ($c->hero_image ?? ''),
             'hero_detail_show' => (int) ($c->hero_detail_show ?? 0),
             'hero_detail_link_type' => (string) ($c->hero_detail_link_type ?? ''),

@@ -21,8 +21,7 @@ class SiteHomeAdmin extends BaseController
         $patch = Request::only([
             'hero_subtitle_zh', 'hero_subtitle_en', 'hero_brand_text',
             'hero_title_zh', 'hero_title_en', 'hero_text_zh', 'hero_text_en',
-            'hero_cta_zh', 'hero_cta_en', 'hero_image',
-            'hero_cta_link_type', 'hero_cta_link_value',
+            'hero_image',
             'hero_detail_show',
             'hero_detail_link_type', 'hero_detail_link_value',
         ]);
@@ -36,19 +35,6 @@ class SiteHomeAdmin extends BaseController
         if (!$row) {
             HomeConfigService::seedDefaultConfig();
             $row = SiteHomeConfig::find(1);
-        }
-
-        if (isset($patch['hero_cta_link_type'])) {
-            $patch['hero_cta_link_type'] = trim((string) $patch['hero_cta_link_type']);
-        }
-        if (isset($patch['hero_cta_link_value'])) {
-            $patch['hero_cta_link_value'] = trim((string) $patch['hero_cta_link_value']);
-        }
-
-        $ctaType = $patch['hero_cta_link_type'] ?? $row->hero_cta_link_type ?? '';
-        $ctaVal  = $patch['hero_cta_link_value'] ?? $row->hero_cta_link_value ?? '';
-        if ($ctaType !== '') {
-            $patch['hero_cta_link'] = HomeConfigService::resolveLinkHref((string) $ctaType, (string) $ctaVal);
         }
 
         if (array_key_exists('hero_detail_show', $patch)) {
