@@ -61,6 +61,7 @@ CREATE TABLE IF NOT EXISTS `news` (
   `cover_image` varchar(255) DEFAULT NULL COMMENT '封面图',
   `date` varchar(50) DEFAULT NULL COMMENT '显示日期',
   `source` varchar(100) DEFAULT NULL COMMENT '来源',
+  `status` tinyint(1) NOT NULL DEFAULT '1' COMMENT '1上架 0下架',
   `created_at` int(11) DEFAULT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='资讯科普表';

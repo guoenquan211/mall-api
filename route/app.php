@@ -84,7 +84,8 @@ Route::group('api', function () {
     Route::delete('orders/:id', 'Order/delete');
 
     // News/Knowledge Routes
-    Route::get('news', 'News/index')->append(['type' => 'news']); 
+    Route::get('news', 'News/index')->append(['type' => 'news']);
+    Route::post('news/:id/status', 'News/setStatus');
     Route::get('news/:id', 'News/read');
     Route::post('news/save', 'News/save');
     Route::delete('news/:id', 'News/delete');
