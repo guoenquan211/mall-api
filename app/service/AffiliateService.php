@@ -158,7 +158,10 @@ class AffiliateService
 
     public static function completedOrderCount(int $userId): int
     {
-        return (int) OrderModel::where('user_id', $userId)->where('status', 3)->count();
+        // 付款已通过即计为有效订单（不必等确认收货）
+        return (int) OrderModel::where('user_id', $userId)
+            ->whereRaw("(payment_status = 'approved' OR status = 3)")
+            ->count();
     }
 
     public static function directCountByMinLevel(int $parentId, int $minLevel): int
@@ -283,81 +286,180 @@ class AffiliateService
         }
     }
 
-    public static function onOrderCompleted(OrderModel $order): void
+    /**
+     * 付款审核通过后入账：累计消费、团队 PV、等级评估、生成 pending 佣金。
+     * 确认收货(status=3)时仅刷新解锁时间，不重复累计。
+     */
+    public static function onOrderPaid(OrderModel $order): void
     {
-        if ((int) $order->status !== 3) {
+        if ((string) ($order->payment_status ?? '') !== 'approved' && (int) $order->status !== 3) {
             return;
         }
+
+        $alreadyCredited = !empty($order->affiliate_credited_at)
+            || CommissionRecord::where('order_id', $order->id)->count() > 0;
+
         $buyerId = (int) $order->user_id;
         $goods   = (string) $order->goods_amount;
         if ($goods === '' || (float) $goods <= 0) {
             $goods = (string) $order->total_amount;
         }
-
-        $buyer = UserModel::find($buyerId);
-        if ($buyer) {
-            $buyer->total_paid_goods = (float) $buyer->total_paid_goods + (float) $goods;
-            $buyer->save();
-        }
-
-        self::addDownlinePvToAncestors($buyerId, $goods);
-        self::bubbleEvaluate($buyerId);
-
-        if (CommissionRecord::where('order_id', $order->id)->count() > 0) {
+        $base = (float) $goods;
+        if ($base <= 0) {
             return;
         }
 
-        $cfg        = self::getConfigRow();
-        $base       = (float) $goods;
-        $confirm    = (int) ($order->confirmed_at ?? time());
-        $afterDays  = max(1, (int) $cfg->after_sale_days);
-        $unlockAt   = $confirm + $afterDays * 86400;
-        $rates      = [
-            1 => (float) $cfg->commission_rate_1,
-            2 => (float) $cfg->commission_rate_2,
-            3 => (float) $cfg->commission_rate_3,
-        ];
-        $benefMap = [
-            1 => $order->b1_user_id ? (int) $order->b1_user_id : null,
-            2 => $order->b2_user_id ? (int) $order->b2_user_id : null,
-            3 => $order->b3_user_id ? (int) $order->b3_user_id : null,
-        ];
+        if (!$alreadyCredited) {
+            Db::startTrans();
+            try {
+                $buyer = UserModel::find($buyerId);
+                if ($buyer) {
+                    $buyer->total_paid_goods = (float) $buyer->total_paid_goods + $base;
+                    $buyer->save();
+                }
 
-        $beneficiaryAmounts = [];
-        foreach ([1, 2, 3] as $tier) {
-            $bid = $benefMap[$tier];
-            if (!$bid) {
-                continue;
+                self::addDownlinePvToAncestors($buyerId, (string) $base);
+                self::bubbleEvaluate($buyerId);
+
+                $cfg       = self::getConfigRow();
+                $paidAt    = (int) ($order->paid_at ?? time());
+                $confirm   = (int) ($order->confirmed_at ?? 0);
+                $afterDays = max(1, (int) $cfg->after_sale_days);
+                // 规则：已付款 →（确认收货后）→ N 天无售后解锁；未确认时先按付款日计时
+                $unlockBase = $confirm > 0 ? $confirm : $paidAt;
+                $unlockAt   = $unlockBase + $afterDays * 86400;
+                $rates      = [
+                    1 => (float) $cfg->commission_rate_1,
+                    2 => (float) $cfg->commission_rate_2,
+                    3 => (float) $cfg->commission_rate_3,
+                ];
+                $benefMap = [
+                    1 => $order->b1_user_id ? (int) $order->b1_user_id : null,
+                    2 => $order->b2_user_id ? (int) $order->b2_user_id : null,
+                    3 => $order->b3_user_id ? (int) $order->b3_user_id : null,
+                ];
+
+                $beneficiaryAmounts = [];
+                foreach ([1, 2, 3] as $tier) {
+                    $bid = $benefMap[$tier];
+                    if (!$bid) {
+                        continue;
+                    }
+                    $ben = UserModel::find($bid);
+                    if (!$ben) {
+                        continue;
+                    }
+                    // 一级：直属邀请人即可拿佣金；二三级需达到对应等级
+                    if ($tier > 1 && (int) $ben->affiliate_level < $tier) {
+                        continue;
+                    }
+                    $rate   = $rates[$tier];
+                    $amount = round($base * $rate, 2);
+                    if ($amount <= 0) {
+                        continue;
+                    }
+                    CommissionRecord::create([
+                        'order_id'   => $order->id,
+                        'user_id'    => $bid,
+                        'tier'       => $tier,
+                        'goods_base' => $base,
+                        'rate'       => $rate,
+                        'amount'     => $amount,
+                        'status'     => 'pending',
+                        'unlock_at'  => $unlockAt,
+                        'created_at' => time(),
+                    ]);
+                    $beneficiaryAmounts[$bid] = ($beneficiaryAmounts[$bid] ?? 0) + $amount;
+                }
+
+                if ($beneficiaryAmounts !== []) {
+                    self::recordProductStatsFromOrder($order, $beneficiaryAmounts);
+                }
+
+                try {
+                    $order->affiliate_credited_at = time();
+                    $order->save();
+                } catch (\Throwable $e) {
+                    // 列未迁移时忽略，佣金记录仍可防重
+                }
+
+                Db::commit();
+            } catch (\Throwable $e) {
+                Db::rollback();
+                throw $e;
             }
-            $ben = UserModel::find($bid);
-            if (!$ben) {
-                continue;
-            }
-            if ((int) $ben->affiliate_level < $tier) {
-                continue;
-            }
-            $rate   = $rates[$tier];
-            $amount = round($base * $rate, 2);
-            if ($amount <= 0) {
-                continue;
-            }
-            CommissionRecord::create([
-                'order_id'   => $order->id,
-                'user_id'    => $bid,
-                'tier'       => $tier,
-                'goods_base' => $base,
-                'rate'       => $rate,
-                'amount'     => $amount,
-                'status'     => 'pending',
-                'unlock_at'  => $unlockAt,
-                'created_at' => time(),
-            ]);
-            $beneficiaryAmounts[$bid] = ($beneficiaryAmounts[$bid] ?? 0) + $amount;
+            return;
         }
 
-        if ($beneficiaryAmounts !== []) {
-            self::recordProductStatsFromOrder($order, $beneficiaryAmounts);
+        // 已入账后若确认收货，按确认日重算解锁时间
+        if ((int) $order->status === 3) {
+            self::refreshCommissionUnlockAt($order);
         }
+    }
+
+    public static function onOrderCompleted(OrderModel $order): void
+    {
+        if ((int) $order->status !== 3) {
+            return;
+        }
+        if (empty($order->confirmed_at)) {
+            $order->confirmed_at = time();
+            $order->save();
+            $order = OrderModel::find($order->id) ?: $order;
+        }
+        // 兼容旧逻辑：若付款通过时未入账，确认收货时补入账
+        self::onOrderPaid($order);
+        self::refreshCommissionUnlockAt($order);
+    }
+
+    /** 确认收货后：pending 佣金解锁时间改为 confirmed_at + 售后天数 */
+    public static function refreshCommissionUnlockAt(OrderModel $order): void
+    {
+        $confirm = (int) ($order->confirmed_at ?? 0);
+        if ($confirm <= 0) {
+            return;
+        }
+        $cfg       = self::getConfigRow();
+        $afterDays = max(1, (int) $cfg->after_sale_days);
+        $unlockAt  = $confirm + $afterDays * 86400;
+
+        CommissionRecord::where('order_id', $order->id)
+            ->where('status', 'pending')
+            ->update(['unlock_at' => $unlockAt]);
+    }
+
+    /**
+     * 补跑：付款已通过但尚未生成分销佣金的历史订单
+     */
+    public static function backfillPaidOrdersAffiliate(): int
+    {
+        try {
+            $orders = OrderModel::where('payment_status', 'approved')
+                ->order('id', 'asc')
+                ->limit(200)
+                ->select();
+        } catch (\Throwable $e) {
+            return 0;
+        }
+
+        $n = 0;
+        foreach ($orders as $order) {
+            if (!empty($order->affiliate_credited_at)) {
+                continue;
+            }
+            if (CommissionRecord::where('order_id', $order->id)->count() > 0) {
+                try {
+                    $order->affiliate_credited_at = (int) ($order->paid_at ?: time());
+                    $order->save();
+                } catch (\Throwable $e) {
+                }
+                continue;
+            }
+            self::onOrderPaid($order);
+            $n++;
+        }
+
+        return $n;
     }
 
     public static function unlockDueCommissions(): int
@@ -409,6 +511,7 @@ class AffiliateService
     public static function runScheduledJobs(bool $forceSettle = false): array
     {
         $unlocked = self::unlockDueCommissions();
+        $backfilled = self::backfillPaidOrdersAffiliate();
         $cfg      = self::getConfigRow();
         $today    = (int) date('j');
         $setDay   = max(1, min(28, (int) $cfg->settlement_day));
@@ -422,6 +525,7 @@ class AffiliateService
 
         return [
             'unlocked'       => $unlocked,
+            'backfilled'     => $backfilled,
             'settled'        => $settled,
             'period'         => $period,
             'settlement_ran' => $ran,

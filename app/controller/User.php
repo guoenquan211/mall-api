@@ -346,6 +346,10 @@ class User extends BaseController
             return $this->error(ApiLocale::t('user.not_found'));
         }
         try {
+            // 补跑历史「付款已通过」但未入账的订单，避免一直 Pending / 佣金为 0
+            AffiliateService::backfillPaidOrdersAffiliate();
+            $user = UserModel::find($userId) ?: $user;
+
             $code = AffiliateService::ensureInviteCode($user);
             $cfg  = AffiliateService::publicConfigPayload();
 

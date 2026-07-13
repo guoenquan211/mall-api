@@ -121,6 +121,14 @@ class GcashService
             $order->save();
 
             Db::commit();
+
+            // 付款通过即分销入账（累计消费 / pending 佣金）
+            try {
+                AffiliateService::onOrderPaid(OrderModel::find($order->id) ?: $order);
+            } catch (\Throwable $e) {
+                // 分销失败不影响付款审核结果
+            }
+
             return $order;
         } catch (\Throwable $e) {
             Db::rollback();
