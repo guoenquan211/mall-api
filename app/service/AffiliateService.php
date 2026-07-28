@@ -349,10 +349,7 @@ class AffiliateService
                     if (!$ben) {
                         continue;
                     }
-                    // 一级：直属邀请人即可拿佣金；二三级需达到对应等级
-                    if ($tier > 1 && (int) $ben->affiliate_level < $tier) {
-                        continue;
-                    }
+                    // 一/二/三级：只要订单快照有对应上级，即按配置比例入账
                     $rate   = $rates[$tier];
                     $amount = round($base * $rate, 2);
                     if ($amount <= 0) {
