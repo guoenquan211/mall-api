@@ -15,6 +15,27 @@ use app\support\MediaUrl;
 
 class Order extends BaseController
 {
+    /**
+     * 物流链接只允许 http/https；省略协议时自动补 https://。
+     *
+     * @return string|null null 表示格式无效
+     */
+    private static function normalizeTrackingUrl($value): ?string
+    {
+        $url = trim((string) $value);
+        if ($url === '') {
+            return '';
+        }
+        if (!preg_match('#^https?://#i', $url)) {
+            $url = 'https://' . $url;
+        }
+        if (strlen($url) > 1000 || filter_var($url, FILTER_VALIDATE_URL) === false) {
+            return null;
+        }
+        $scheme = strtolower((string) parse_url($url, PHP_URL_SCHEME));
+        return in_array($scheme, ['http', 'https'], true) ? $url : null;
+    }
+
     private function enrichOrderListItem($item): void
     {
         $item->user_name = $item->user ? ($item->user->nickname ?: $item->user->username) : 'Unknown';
@@ -189,7 +210,7 @@ class Order extends BaseController
 
     public function save()
     {
-        $data = Request::only(['id', 'status', 'express_company', 'express_no', 'remark']);
+        $data = Request::only(['id', 'status', 'express_company', 'express_no', 'express_tracking_url', 'remark']);
 
         if (empty($data['id'])) {
             return $this->error(ApiLocale::t('order.id_required'));
@@ -210,6 +231,13 @@ class Order extends BaseController
         }
         if (array_key_exists('express_no', $data)) {
             $update['express_no'] = (string) $data['express_no'];
+        }
+        if (array_key_exists('express_tracking_url', $data)) {
+            $trackingUrl = self::normalizeTrackingUrl($data['express_tracking_url']);
+            if ($trackingUrl === null) {
+                return $this->error('物流链接格式不正确，请填写 http/https 链接');
+            }
+            $update['express_tracking_url'] = $trackingUrl;
         }
         if (array_key_exists('remark', $data)) {
             $update['remark'] = (string) $data['remark'];
@@ -234,7 +262,7 @@ class Order extends BaseController
         }
 
         $detail = "订单 {$order->order_no} 状态 {$oldStatus}→{$newStatus}";
-        if (!empty($update['express_company']) || !empty($update['express_no'])) {
+        if (!empty($update['express_company']) || !empty($update['express_no']) || !empty($update['express_tracking_url'])) {
             $detail .= " 物流 {$order->express_company}:{$order->express_no}";
         }
         $this->log('更新', '订单', $detail);
@@ -249,6 +277,10 @@ class Order extends BaseController
         $id = Request::param('id');
         $company = Request::param('express_company');
         $no = Request::param('express_no');
+        $trackingUrl = self::normalizeTrackingUrl(Request::param('express_tracking_url', ''));
+        if ($trackingUrl === null) {
+            return $this->error('物流链接格式不正确，请填写 http/https 链接');
+        }
         
         $order = OrderModel::find($id);
         if (!$order) return $this->error(ApiLocale::t('order.not_found'));
@@ -256,6 +288,7 @@ class Order extends BaseController
         $order->status = 2; // Shipped
         $order->express_company = $company;
         $order->express_no = $no;
+        $order->express_tracking_url = $trackingUrl;
         $order->save();
         
         // Log Admin Action

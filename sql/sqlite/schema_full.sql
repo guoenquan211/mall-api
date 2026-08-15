@@ -136,6 +136,7 @@ CREATE TABLE IF NOT EXISTS `orders` (
   `b3_user_id` INTEGER DEFAULT NULL,
   `express_company` TEXT DEFAULT NULL,
   `express_no` TEXT DEFAULT NULL,
+  `express_tracking_url` TEXT DEFAULT NULL,
   `address_snapshot` TEXT,
   `remark` TEXT DEFAULT NULL,
   `created_at` INTEGER DEFAULT NULL,

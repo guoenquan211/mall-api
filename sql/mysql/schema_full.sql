@@ -151,6 +151,7 @@ CREATE TABLE IF NOT EXISTS `orders` (
   `b3_user_id` int(11) DEFAULT NULL COMMENT '三级受益人快照',
   `express_company` varchar(50) DEFAULT NULL COMMENT '快递公司',
   `express_no` varchar(100) DEFAULT NULL COMMENT '快递单号',
+  `express_tracking_url` varchar(1000) DEFAULT NULL COMMENT '实时物流追踪链接',
   `address_snapshot` text COMMENT '收货地址快照',
   `remark` varchar(500) DEFAULT NULL COMMENT '备注',
   `created_at` int(11) DEFAULT NULL,
