@@ -1,0 +1,30 @@
+/**
+ * 全局基础：具体主题色与字体在 App.vue 的 :root 中定义。
+ * 此处避免 Vite 默认深色样式覆盖美护站点观感。
+ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+}
+
+#app {
+  width: 100%;
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+}
+
+button {
+  font-family: inherit;
+}
